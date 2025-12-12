@@ -1,199 +1,377 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Budget Tracker</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f4f7f6; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .chart-container { width: 100%; height: 400px; margin-top: 20px; }
-        .form-group { margin-bottom: 15px; }
-        input, button { padding: 10px; width: 100%; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background-color: #007bff; color: white; border: none; cursor: pointer; margin-top: 10px; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 20px; }
-        .flex-buttons { display: flex; gap: 10px; }
-        .flex-buttons button { width: auto; flex-grow: 1; }
-    </style>
+  <meta charset="utf-8" />
+  <title>Smart Budget Tracker — Frontend</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background:#f4f7f6; margin:0; padding:18px;}
+    .app{max-width:980px;margin:0 auto;background:#fff;padding:22px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.08);}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    nav{display:flex;gap:8px;margin-top:14px}
+    nav button{padding:8px 12px;border-radius:6px;border:1px solid #ddd;background:#f8f9fb;cursor:pointer}
+    nav button.active{background:#007bff;color:#fff;border-color:transparent}
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:18px}
+    .card{background:#fff;border-radius:8px;padding:14px;border:1px solid #eee}
+    .hidden{display:none}
+    input, button, select, textarea{font-size:14px;padding:8px;border-radius:6px;border:1px solid #ddd;box-sizing:border-box;width:100%}
+    .small{font-size:13px;color:#666;margin-top:6px}
+    .file-row{display:flex;gap:8px;align-items:center}
+    .stat{font-size:22px;font-weight:600}
+    ul.suggestions{padding-left:18px}
+    .topbar{display:flex;gap:10px;align-items:center}
+    .btn-primary{background:#007bff;color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer}
+    .btn-ghost{background:transparent;border:1px solid #ddd;padding:8px 12px;border-radius:6px;cursor:pointer}
+    .expense-list{max-height:300px;overflow:auto}
+    .expense-item{padding:8px;border-bottom:1px solid #f0f0f0}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>💸 Smart Budget Tracker</h1>
-        
-        <div id="auth-section">
-            <h2>User Authentication (Try: user1/123 or user2/123)</h2>
-            <div class="form-group"><input type="text" id="username" placeholder="Username" value="user1"></div>
-            <div class="form-group"><input type="password" id="password" placeholder="Password" value="123"></div>
-            <div class="flex-buttons">
-                <button onclick="registerUser()">Register</button>
-                <button onclick="loginUser()">Login</button>
-            </div>
-            <p id="auth-message" style="margin-top: 10px;"></p>
-        </div>
+  <div class="app">
+    <header>
+      <div>
+        <h1 style="margin:0">💸 Smart Budget Tracker</h1>
+        <div class="small">Simple demo — signup/login, upload receipts, visualize spending & get suggestions</div>
+      </div>
+      <div class="topbar">
+        <div id="user-badge" style="display:none">Hello, <strong id="username-badge"></strong></div>
+        <button id="logoutBtn" class="btn-ghost hidden">Logout</button>
+      </div>
+    </header>
 
-        <div id="app-section" style="display: none;">
-            <p>Welcome, <strong id="current-user"></strong>! Your data is secure and separate.</p>
+    <nav id="main-nav" style="margin-top:14px">
+      <button data-view="auth" class="active">Auth</button>
+      <button data-view="dashboard">Dashboard</button>
+      <button data-view="upload">Upload</button>
+      <button data-view="visualize">Visualize</button>
+      <button data-view="suggestions">Suggestions</button>
+      <button data-view="profile">Profile</button>
+    </nav>
 
-            <h2>➕ Upload & Review Bill</h2>
-            <div class="form-group"><input type="file" id="bill-file"></div>
-            <button onclick="uploadBill()">Simulate Bill Upload (FastAPI auto-categorizes)</button>
-            <p id="upload-message" style="margin-top: 10px;"></p>
-            
-            <h2>📊 Spending Visualization (Category Breakdown)</h2>
-            <div class="chart-container">
-                <canvas id="spendingChart"></canvas>
-            </div>
+    <div id="views" style="margin-top:18px">
+      <!-- AUTH -->
+      <div id="view-auth" class="card">
+        <h3>Login / Signup</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input id="input-username" placeholder="username (e.g. alice)" />
+          <input id="input-password" type="password" placeholder="password (e.g. 123)" />
         </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="btn-register" class="btn-primary">Register</button>
+          <button id="btn-login" class="btn-ghost">Login</button>
+        </div>
+        <p id="auth-msg" class="small"></p>
+        <hr />
+        <div>
+          <strong>Quick test users</strong>
+          <div class="small">You can register new users. For demo, uploads create simulated expenses.</div>
+        </div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div id="view-dashboard" class="card hidden">
+        <h3>Dashboard</h3>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="flex:1">
+            <div class="small">Welcome back!</div>
+            <div class="stat" id="total-spend">₹0.00</div>
+            <div class="small">Total recorded spending</div>
+          </div>
+          <div style="width:320px">
+            <div class="card" style="padding:10px">
+              <strong>Recent expenses</strong>
+              <div class="expense-list" id="recent-expenses"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- UPLOAD -->
+      <div id="view-upload" class="card hidden">
+        <h3>Upload Document (Receipt / Bill)</h3>
+        <div class="file-row">
+          <input type="file" id="file-input" />
+          <button id="btn-upload" class="btn-primary">Upload</button>
+        </div>
+        <p id="upload-msg" class="small"></p>
+      </div>
+
+      <!-- VISUALIZE -->
+      <div id="view-visualize" class="card hidden">
+        <h3>Spending Visualization</h3>
+        <div style="height:300px">
+          <canvas id="chart-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- SUGGESTIONS -->
+      <div id="view-suggestions" class="card hidden">
+        <h3>Suggestions</h3>
+        <div id="suggestions-list" class="small"></div>
+      </div>
+
+      <!-- PROFILE -->
+      <div id="view-profile" class="card hidden">
+        <h3>Profile</h3>
+        <div class="small">Username: <strong id="profile-username"></strong></div>
+        <div class="small" style="margin-top:8px">User ID: <span id="profile-id"></span></div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // The API runs on port 8000
-        const API_URL = 'http://localhost:8000'; 
-        let accessToken = localStorage.getItem('access_token');
-        let spendingChart;
+<script>
+const API_URL = 'http://localhost:8000';
+let accessToken = localStorage.getItem('access_token') || null;
+let currentUsername = localStorage.getItem('username') || null;
+const navButtons = document.querySelectorAll('nav button[data-view]');
+const views = {
+  auth: document.getElementById('view-auth'),
+  dashboard: document.getElementById('view-dashboard'),
+  upload: document.getElementById('view-upload'),
+  visualize: document.getElementById('view-visualize'),
+  suggestions: document.getElementById('view-suggestions'),
+  profile: document.getElementById('view-profile')
+};
+const authMsg = document.getElementById('auth-msg');
+const uploadMsg = document.getElementById('upload-msg');
+const usernameBadge = document.getElementById('username-badge');
+const userBadge = document.getElementById('user-badge');
+const logoutBtn = document.getElementById('logoutBtn');
+const profileUsername = document.getElementById('profile-username');
+const profileId = document.getElementById('profile-id');
+let spendingChart = null;
 
-        // --- AUTH LOGIC ---
-        async function registerUser() {
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            // ... (rest of registerUser function)
-            try {
-                const response = await fetch(`${API_URL}/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
-                });
-                const data = await response.json();
-                document.getElementById('auth-message').textContent = response.ok ? data.message : `Error: ${data.detail || data.message}`;
-            } catch (error) {
-                document.getElementById('auth-message').textContent = `Network Error: ${error.message}`;
-            }
-        }
+// NAV handling
+navButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=> {
+    navButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const view = btn.dataset.view;
+    showView(view);
+  });
+});
 
-        async function loginUser() {
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            const formData = new URLSearchParams();
-            formData.append('username', user);
-            formData.append('password', pass);
+function showView(name){
+  for(const k in views){
+    views[k].classList.add('hidden');
+  }
+  views[name].classList.remove('hidden');
 
-            try {
-                const response = await fetch(`${API_URL}/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData.toString()
-                });
-                const data = await response.json();
-                
-                if (response.ok) {
-                    accessToken = data.access_token;
-                    localStorage.setItem('access_token', accessToken);
-                    localStorage.setItem('username', user);
-                    showAppSection();
-                    fetchAnalytics();
-                } else {
-                    document.getElementById('auth-message').textContent = `Login Failed: ${data.detail || 'Check credentials'}`;
-                }
-            } catch (error) {
-                document.getElementById('auth-message').textContent = `Network Error: ${error.message}`;
-            }
-        }
+  // auto refresh certain views
+  if(name === 'dashboard') loadDashboard();
+  if(name === 'visualize') loadAnalytics();
+  if(name === 'suggestions') loadSuggestions();
+  if(name === 'profile') loadProfile();
+  if(name === 'upload') { uploadMsg.textContent = ''; }
+}
 
-        function showAppSection() {
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('app-section').style.display = 'block';
-            document.getElementById('current-user').textContent = localStorage.getItem('username');
-        }
+// AUTH actions
+document.getElementById('btn-register').addEventListener('click', async ()=>{
+  const username = document.getElementById('input-username').value.trim();
+  const password = document.getElementById('input-password').value.trim();
+  if(!username || !password){ authMsg.textContent = "Enter username & password."; return; }
+  authMsg.textContent = "Registering..."
+  try {
+    const res = await fetch(`${API_URL}/register`, {
+      method:'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if(res.ok){
+      authMsg.textContent = "Registered — now login.";
+    } else {
+      authMsg.textContent = `Register failed: ${data.detail || data.message}`;
+    }
+  } catch(e){
+    authMsg.textContent = "Network error: " + e.message;
+  }
+});
 
-        // --- EXPENSE LOGIC ---
-        async function uploadBill() {
-            const fileInput = document.getElementById('bill-file');
-            if (fileInput.files.length === 0) {
-                document.getElementById('upload-message').textContent = 'Please select a file.';
-                return;
-            }
+document.getElementById('btn-login').addEventListener('click', async ()=>{
+  const username = document.getElementById('input-username').value.trim();
+  const password = document.getElementById('input-password').value.trim();
+  if(!username || !password){ authMsg.textContent = "Enter username & password."; return; }
+  authMsg.textContent = "Logging in..."
+  try {
+    const body = new URLSearchParams();
+    body.append('username', username);
+    body.append('password', password);
+    const res = await fetch(`${API_URL}/token`, {
+      method:'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: body.toString()
+    });
+    const data = await res.json();
+    if(res.ok){
+      accessToken = data.access_token;
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('username', username);
+      currentUsername = username;
+      authMsg.textContent = "Logged in!";
+      onLoggedIn();
+      // go dashboard
+      document.querySelector('nav button[data-view="dashboard"]').click();
+    } else {
+      authMsg.textContent = `Login failed: ${data.detail || 'check credentials'}`;
+    }
+  } catch(e){
+    authMsg.textContent = "Network error: " + e.message;
+  }
+});
 
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+function onLoggedIn(){
+  usernameBadge.textContent = currentUsername;
+  userBadge.style.display = 'inline-block';
+  logoutBtn.classList.remove('hidden');
+  document.getElementById('input-password').value = '';
+}
 
-            try {
-                const response = await fetch(`${API_URL}/expenses/upload_bill`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${accessToken}` },
-                    body: formData
-                });
+// LOGOUT
+logoutBtn.addEventListener('click', ()=>{
+  accessToken = null;
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('username');
+  currentUsername = null;
+  userBadge.style.display = 'none';
+  logoutBtn.classList.add('hidden');
+  // return to auth
+  document.querySelector('nav button[data-view="auth"]').click();
+});
 
-                const data = await response.json();
-                if (response.ok) {
-                    document.getElementById('upload-message').textContent = `Success! Category: ${data.expense.category}, Amount: $${data.expense.amount}.`;
-                    fetchAnalytics(); 
-                } else {
-                    document.getElementById('upload-message').textContent = `Upload Error: ${data.detail || data.message}`;
-                }
-            } catch (error) {
-                document.getElementById('upload-message').textContent = `Network Error: ${error.message}`;
-            }
-        }
+// UPLOAD
+document.getElementById('btn-upload').addEventListener('click', async ()=>{
+  if(!accessToken){ uploadMsg.textContent = 'Please login first.'; return; }
+  const input = document.getElementById('file-input');
+  if(!input.files || input.files.length === 0){ uploadMsg.textContent = 'Select a file first.'; return; }
+  uploadMsg.textContent = 'Uploading...';
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  try {
+    const res = await fetch(`${API_URL}/expenses/upload_bill`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+      body: form
+    });
+    const data = await res.json();
+    if(res.ok){
+      uploadMsg.textContent = `Uploaded. Detected ${data.category} — ₹${data.amount}`;
+      input.value = '';
+      // refresh dashboard & chart
+      loadDashboard(); loadAnalytics();
+    } else {
+      uploadMsg.textContent = `Upload error: ${data.detail || data.message}`;
+    }
+  } catch(e){
+    uploadMsg.textContent = 'Network error: ' + e.message;
+  }
+});
 
-        // --- VISUALIZATION LOGIC ---
-        async function fetchAnalytics() {
-            try {
-                const response = await fetch(`${API_URL}/analytics/spending_by_category`, {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    renderChart(data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch analytics:", error);
-                document.getElementById('upload-message').textContent = 'Error fetching analytics. You may need to log in again.';
-            }
-        }
+// DASHBOARD
+async function loadDashboard(){
+  if(!accessToken) return;
+  try {
+    const [expRes, analyticsRes] = await Promise.all([
+      fetch(`${API_URL}/expenses`, { headers: { 'Authorization': `Bearer ${accessToken}` } }),
+      fetch(`${API_URL}/analytics/spending_by_category`, { headers: { 'Authorization': `Bearer ${accessToken}` } })
+    ]);
+    if(!expRes.ok || !analyticsRes.ok){
+      // token maybe invalid
+      document.getElementById('total-spend').textContent = '₹0.00';
+      document.getElementById('recent-expenses').innerHTML = '<div class="small">No data or need to login again.</div>';
+      return;
+    }
+    const expenses = await expRes.json();
+    const analytics = await analyticsRes.json();
+    let total = 0;
+    const recentEl = document.getElementById('recent-expenses');
+    recentEl.innerHTML = '';
+    for(const e of expenses.slice(0,8)){
+      total += parseFloat(e.amount);
+      const d = new Date(e.date);
+      const name = e.vendor || e.category;
+      recentEl.insertAdjacentHTML('beforeend', `<div class="expense-item"><strong>₹${Number(e.amount).toFixed(2)}</strong> — ${name} <div class="small">${d.toLocaleString()}</div></div>`);
+    }
+    document.getElementById('total-spend').textContent = `₹${total.toFixed(2)}`;
+  } catch(err){
+    console.error(err);
+  }
+}
 
-        function renderChart(data) {
-            const categories = data.map(item => item.category);
-            const totals = data.map(item => item.total_spent);
-            
-            const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-            const colors = categories.map(() => randomColor());
+// ANALYTICS & CHART
+async function loadAnalytics(){
+  if(!accessToken) return;
+  try {
+    const res = await fetch(`${API_URL}/analytics/spending_by_category`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    if(!res.ok) return;
+    const data = await res.json();
+    renderChart(data);
+  } catch(e){ console.error(e); }
+}
 
-            if (spendingChart) {
-                spendingChart.destroy(); 
-            }
+function renderChart(data){
+  const labels = data.map(x => x.category);
+  const values = data.map(x => x.total_spent);
+  const colors = labels.map(()=> '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'));
+  const ctx = document.getElementById('chart-canvas').getContext('2d');
+  if(spendingChart) spendingChart.destroy();
+  spendingChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, hoverOffset: 6 }]
+    },
+    options: {
+      responsive:true,
+      plugins:{ legend:{position:'top'} }
+    }
+  });
+}
 
-            const ctx = document.getElementById('spendingChart').getContext('2d');
-            spendingChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: categories,
-                    datasets: [{
-                        label: 'Spending by Category',
-                        data: totals,
-                        backgroundColor: colors,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top' },
-                        title: { display: true, text: 'Total Spending Breakdown' }
-                    }
-                }
-            });
-        }
-        
-        // Check for existing token on load
-        window.onload = () => {
-            if (accessToken) {
-                showAppSection();
-                fetchAnalytics();
-            }
-        };
+// SUGGESTIONS
+async function loadSuggestions(){
+  if(!accessToken){ document.getElementById('suggestions-list').innerHTML = 'Login to see suggestions.'; return; }
+  try {
+    const res = await fetch(`${API_URL}/suggestions`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    if(!res.ok){ document.getElementById('suggestions-list').innerHTML = 'Error fetching suggestions.'; return; }
+    const data = await res.json();
+    const listEl = document.getElementById('suggestions-list');
+    if(data.suggestions && Array.isArray(data.suggestions)){
+      listEl.innerHTML = '<ul class="suggestions">' + data.suggestions.map(s=>`<li>${s}</li>`).join('') + '</ul>';
+    } else {
+      listEl.textContent = JSON.stringify(data);
+    }
+  } catch(e){ document.getElementById('suggestions-list').textContent = 'Network error.'; }
+}
 
-    </script>
+// PROFILE
+async function loadProfile(){
+  if(!accessToken){ profileUsername.textContent = '-'; profileId.textContent = '-'; return; }
+  try {
+    const res = await fetch(`${API_URL}/me`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    if(!res.ok){ profileUsername.textContent = '-'; profileId.textContent = '-'; return; }
+    const data = await res.json();
+    profileUsername.textContent = data.username;
+    profileId.textContent = data.user_id;
+  } catch(e){ console.error(e); }
+}
+
+// INITIALIZATION
+window.addEventListener('load', ()=>{
+  // if logged in, show badge & load dashboard
+  if(accessToken){
+    currentUsername = localStorage.getItem('username');
+    onLoggedIn();
+    loadDashboard();
+  } else {
+    // show auth
+    document.querySelector('nav button[data-view="auth"]').click();
+  }
+
+  // make auth nav available if not logged in
+  if(!accessToken) document.querySelector('nav button[data-view="auth"]').classList.add('active');
+});
+</script>
 </body>
 </html>
