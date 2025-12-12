@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Budget Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f7f6; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .chart-container { width: 100%; height: 400px; margin-top: 20px; }
+        .form-group { margin-bottom: 15px; }
+        input, button { padding: 10px; width: 100%; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; margin-top: 10px; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 20px; }
+        .flex-buttons { display: flex; gap: 10px; }
+        .flex-buttons button { width: auto; flex-grow: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💸 Smart Budget Tracker</h1>
+        
+        <div id="auth-section">
+            <h2>User Authentication (Try: user1/123 or user2/123)</h2>
+            <div class="form-group"><input type="text" id="username" placeholder="Username" value="user1"></div>
+            <div class="form-group"><input type="password" id="password" placeholder="Password" value="123"></div>
+            <div class="flex-buttons">
+                <button onclick="registerUser()">Register</button>
+                <button onclick="loginUser()">Login</button>
+            </div>
+            <p id="auth-message" style="margin-top: 10px;"></p>
+        </div>
+
+        <div id="app-section" style="display: none;">
+            <p>Welcome, <strong id="current-user"></strong>! Your data is secure and separate.</p>
+
+            <h2>➕ Upload & Review Bill</h2>
+            <div class="form-group"><input type="file" id="bill-file"></div>
+            <button onclick="uploadBill()">Simulate Bill Upload (FastAPI auto-categorizes)</button>
+            <p id="upload-message" style="margin-top: 10px;"></p>
+            
+            <h2>📊 Spending Visualization (Category Breakdown)</h2>
+            <div class="chart-container">
+                <canvas id="spendingChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // The API runs on port 8000
+        const API_URL = 'http://localhost:8000'; 
+        let accessToken = localStorage.getItem('access_token');
+        let spendingChart;
+
+        // --- AUTH LOGIC ---
+        async function registerUser() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            // ... (rest of registerUser function)
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await response.json();
+                document.getElementById('auth-message').textContent = response.ok ? data.message : `Error: ${data.detail || data.message}`;
+            } catch (error) {
+                document.getElementById('auth-message').textContent = `Network Error: ${error.message}`;
+            }
+        }
+
+        async function loginUser() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const formData = new URLSearchParams();
+            formData.append('username', user);
+            formData.append('password', pass);
+
+            try {
+                const response = await fetch(`${API_URL}/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    accessToken = data.access_token;
+                    localStorage.setItem('access_token', accessToken);
+                    localStorage.setItem('username', user);
+                    showAppSection();
+                    fetchAnalytics();
+                } else {
+                    document.getElementById('auth-message').textContent = `Login Failed: ${data.detail || 'Check credentials'}`;
+                }
+            } catch (error) {
+                document.getElementById('auth-message').textContent = `Network Error: ${error.message}`;
+            }
+        }
+
+        function showAppSection() {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('app-section').style.display = 'block';
+            document.getElementById('current-user').textContent = localStorage.getItem('username');
+        }
+
+        // --- EXPENSE LOGIC ---
+        async function uploadBill() {
+            const fileInput = document.getElementById('bill-file');
+            if (fileInput.files.length === 0) {
+                document.getElementById('upload-message').textContent = 'Please select a file.';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`${API_URL}/expenses/upload_bill`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('upload-message').textContent = `Success! Category: ${data.expense.category}, Amount: $${data.expense.amount}.`;
+                    fetchAnalytics(); 
+                } else {
+                    document.getElementById('upload-message').textContent = `Upload Error: ${data.detail || data.message}`;
+                }
+            } catch (error) {
+                document.getElementById('upload-message').textContent = `Network Error: ${error.message}`;
+            }
+        }
+
+        // --- VISUALIZATION LOGIC ---
+        async function fetchAnalytics() {
+            try {
+                const response = await fetch(`${API_URL}/analytics/spending_by_category`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    renderChart(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch analytics:", error);
+                document.getElementById('upload-message').textContent = 'Error fetching analytics. You may need to log in again.';
+            }
+        }
+
+        function renderChart(data) {
+            const categories = data.map(item => item.category);
+            const totals = data.map(item => item.total_spent);
+            
+            const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            const colors = categories.map(() => randomColor());
+
+            if (spendingChart) {
+                spendingChart.destroy(); 
+            }
+
+            const ctx = document.getElementById('spendingChart').getContext('2d');
+            spendingChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: categories,
+                    datasets: [{
+                        label: 'Spending by Category',
+                        data: totals,
+                        backgroundColor: colors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'Total Spending Breakdown' }
+                    }
+                }
+            });
+        }
+        
+        // Check for existing token on load
+        window.onload = () => {
+            if (accessToken) {
+                showAppSection();
+                fetchAnalytics();
+            }
+        };
+
+    </script>
+</body>
+</html>

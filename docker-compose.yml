@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    env_file: ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Expose port 5432 on the host machine (optional)
+    ports:
+      - "5432:5432" 
+
+  api:
+    # Look for the Dockerfile inside the 'backend' directory
+    build: ./backend
+    restart: always
+    env_file: ./.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    # Command to run FastAPI server
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    # Mount local code for live development (optional, but useful in VS Code)
+    volumes:
+      - ./backend:/app 
+
+  frontend:
+    # Look for the Dockerfile inside the 'frontend' directory
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+      
+volumes:
+  postgres_data:
